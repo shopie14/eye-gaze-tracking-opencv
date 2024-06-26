@@ -11,7 +11,12 @@ predictor = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
 def detect_face_and_eyes(frame):
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     faces = detector(gray)
-    for face in faces:
+    
+    print("Number of faces detected: {}".format(len(faces)))
+    
+    for idx, face in enumerate(faces):
+        print(f"Detection {idx}")
+        print(f'Left: {face.left()} Top: {face.top()} Right: {face.right()} Bottom: {face.bottom()}')
         x, y, w, h = (face.left(), face.top(), face.width(), face.height())
         cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
         landmarks = predictor(gray, face)
@@ -22,6 +27,8 @@ def detect_face_and_eyes(frame):
         left_eye = np.array([[p.x, p.y] for p in left_eye])
         right_eye = np.array([[p.x, p.y] for p in right_eye])
 
+        print("Number of pair of eyes detected: {}".format(len([left_eye, right_eye])))
+        
         # Draw rectangles around the eyes
         for eye in [left_eye, right_eye]:
             x, y, w, h = cv2.boundingRect(eye)
@@ -32,7 +39,6 @@ def detect_face_and_eyes(frame):
             if pupil_center:
                 gaze_direction, displacement = estimate_gaze(pupil_center, eye_color)
                 cv2.putText(frame, gaze_direction, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
-                print(f"Gaze direction: {gaze_direction}, Displacement: {displacement}")
 
         # Detect yawn
         upper_lip = landmarks.part(62)
@@ -55,44 +61,6 @@ def detect_pupil(eye_gray, eye_color):
         (x, y, w, h) = cv2.boundingRect(cnt)
         cv2.circle(eye_color, (x + int(w/2), y + int(h/2)), 5, (0, 0, 255), -1)
         return (x + int(w/2), y + int(h/2))
-    return None
-
-# Function to detect the pupil using Hough Circle Transform
-def detect_pupil_hough(eye_gray, eye_color):
-    blurred_eye = cv2.medianBlur(eye_gray, 5)
-    circles = cv2.HoughCircles(blurred_eye, cv2.HOUGH_GRADIENT, dp=1, minDist=20,
-                               param1=50, param2=30, minRadius=5, maxRadius=15)
-    if circles is not None:
-        circles = np.uint16(np.around(circles))
-        for i in circles[0, :]:
-            cv2.circle(eye_color, (i[0], i[1]), i[2], (0, 255, 0), 2)
-            cv2.circle(eye_color, (i[0], i[1]), 2, (0, 0, 255), 3)
-            return (i[0], i[1])
-    return None
-
-# Function to detect the pupil using Blob Detection
-def detect_pupil_blob(eye_gray, eye_color):
-    # Setup SimpleBlobDetector parameters
-    params = cv2.SimpleBlobDetector_Params()
-    params.filterByArea = True
-    params.minArea = 1500
-    params.filterByCircularity = True
-    params.minCircularity = 0.1
-    params.filterByConvexity = True
-    params.minConvexity = 0.87
-    params.filterByInertia = True
-    params.minInertiaRatio = 0.01
-
-    detector = cv2.SimpleBlobDetector_create(params)
-
-    # Detect blobs
-    keypoints = detector.detect(eye_gray)
-    for keypoint in keypoints:
-        x = int(keypoint.pt[0])
-        y = int(keypoint.pt[1])
-        cv2.circle(eye_color, (x, y), int(keypoint.size / 2), (0, 255, 0), 2)
-        cv2.circle(eye_color, (x, y), 2, (0, 0, 255), 3)
-        return (x, y)
     return None
 
 # Function to estimate gaze direction
